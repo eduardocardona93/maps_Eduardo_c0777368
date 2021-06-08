@@ -8,7 +8,9 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.ColorSpace;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -32,6 +34,7 @@ import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.maps.android.ui.IconGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -178,19 +181,61 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     pl.setWidth(5);
                 }
                 polyline.setWidth(10);
-                LatLng markA = polyline.getPoints().get(0);
+                LatLng LatLngA = polyline.getPoints().get(0);
                 Location locationA = new Location("locationA");
-                locationA.setLatitude(markA.latitude);
-                locationA.setLongitude(markA.longitude);
-                LatLng markB = polyline.getPoints().get(1);
+                locationA.setLatitude(LatLngA.latitude);
+                locationA.setLongitude(LatLngA.longitude);
+                LatLng LatLngB = polyline.getPoints().get(1);
                 Location locationB = new Location("locationB");
-                locationB.setLatitude(markB.latitude);
-                locationB.setLongitude(markB.longitude);
+                locationB.setLatitude(LatLngB.latitude);
+                locationB.setLongitude(LatLngB.longitude);
 
+                LatLng LatLngMiddle = new LatLng((LatLngA.latitude - LatLngB.latitude)/2, (LatLngA.longitude - LatLngB.longitude)/2);
+
+                IconGenerator icnGenerator = new IconGenerator(getBaseContext());
+                icnGenerator.setColor(Color.parseColor("#FB7063"));
+                Bitmap iconBitmap = icnGenerator.makeIcon(String.format(" %.2f km", locationA.distanceTo(locationB)/1000.0));
+                MarkerOptions options = new MarkerOptions().position(LatLngMiddle)
+                            .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
+                mMap.addMarker(options).setTag("Distance Indicator");
             }
         });
         // polygon tap
+        mMap.setOnPolygonClickListener(new GoogleMap.OnPolygonClickListener() {
+            @Override
+            public void onPolygonClick(@NonNull Polygon polygon) {
+                double totalDistance = 0.0;
+                for(int i=0;  i<POLYGON_POINTS; i++){
+                    Location locationA = new Location("locationA");
+                    locationA.setLatitude(markers.get(i).getPosition().latitude);
+                    locationA.setLongitude(markers.get(i).getPosition().longitude);
+                    if(i > 0 ) {
 
+                        Location locationB = new Location("locationB");
+                        locationB.setLatitude(markers.get(i-1).getPosition().latitude);
+                        locationB.setLongitude(markers.get(i-1).getPosition().longitude);
+
+                        totalDistance += locationA.distanceTo(locationB);
+                    }
+
+                    if (i == POLYGON_POINTS - 1 ){
+                        Location locationC = new Location("locationC");
+                        locationC.setLatitude(markers.get(i-1).getPosition().latitude);
+                        locationC.setLongitude(markers.get(i-1).getPosition().longitude);
+                        totalDistance += locationA.distanceTo(locationC);
+                    }
+
+                }
+                IconGenerator icnGenerator = new IconGenerator(getBaseContext());
+                icnGenerator.setColor(Color.parseColor("#000000"));
+                Bitmap iconBitmap = icnGenerator.makeIcon(String.format("A-B-C-D \n %.2f km", totalDistance));
+                MarkerOptions options = new MarkerOptions().position(new LatLng(homelocation.getLatitude(), homelocation.getLongitude()))
+                        .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
+
+            }
+
+
+        });
 
     }
 //
@@ -214,7 +259,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             .snippet(String.format("%.2f km to your location",location.distanceTo(homelocation)/1000.0))
                             .draggable(true);
 
-                    markers.add(mMap.addMarker(options));
+                    Marker newMarker = mMap.addMarker(options);
+
+                    markers.add(newMarker);
                 }else
                     error = "This location is outside Canada, please try again";
             }else
