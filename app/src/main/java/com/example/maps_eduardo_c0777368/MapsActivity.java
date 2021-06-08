@@ -47,11 +47,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     Polyline line;
     Polygon shape;
 
-    private final int POLYGON_POINTS = 4;
-    List<Marker> markers = new ArrayList<>();
-    List<Polyline> lines = new ArrayList<>();
-    String markerLetters[] = {"A","B","C","D"};
 
+    List<Marker> markers = new ArrayList<>();
+    List<Marker> polyMarkers = new ArrayList<>();
+    List<Polyline> lines = new ArrayList<>();
+    private final String markerLetters[] = {"A","B","C","D"};
+    private final int POLYGON_POINTS = markerLetters.length;
     LocationManager locationManager;
     LocationListener locationListener;
 
@@ -140,6 +141,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onMarkerDrag(@NonNull Marker marker) {}
             @Override
             public void onMarkerDragEnd(@NonNull Marker marker) {
+                for(Polyline line : lines)
+                    line.remove();
+                lines.clear();
+                for (Marker plMkr : polyMarkers)
+                    plMkr.remove();
+                polyMarkers.clear();
+                if (shape != null){
+                    shape.remove();
+                    shape = null;
+                }
                 markers.remove(marker);
                 marker.remove();
                 Location location = new Location("location");
@@ -162,6 +173,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     itLocation.setLatitude(itMark.getPosition().latitude);
                     itLocation.setLongitude(itMark.getPosition().longitude);
                     if(newLocation.distanceTo(itLocation)/1000.0 < 5.0){
+                        for(Polyline line : lines)
+                            line.remove();
+                        lines.clear();
+                        for (Marker plMkr : polyMarkers)
+                            plMkr.remove();
+                        polyMarkers.clear();
+
+                        if (shape != null){
+                            shape.remove();
+                            shape = null;
+                        }
                         markers.remove(itMark);
                         itMark.remove();
                         isNew = false;
@@ -177,71 +199,71 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnPolylineClickListener(new GoogleMap.OnPolylineClickListener() {
             @Override
             public void onPolylineClick(@NonNull Polyline polyline) {
+
+                for (Marker mk : polyMarkers)
+                        mk.remove();
+
                 for (Polyline pl : lines) {
-                    pl.setWidth(5);
-                }
-                polyline.setWidth(10);
-                LatLng LatLngA = polyline.getPoints().get(0);
-                Location locationA = new Location("locationA");
-                locationA.setLatitude(LatLngA.latitude);
-                locationA.setLongitude(LatLngA.longitude);
-                LatLng LatLngB = polyline.getPoints().get(1);
-                Location locationB = new Location("locationB");
-                locationB.setLatitude(LatLngB.latitude);
-                locationB.setLongitude(LatLngB.longitude);
+                    LatLng LatLngA = pl.getPoints().get(0);
+                    Location locationA = new Location("locationA");
+                    locationA.setLatitude(LatLngA.latitude);
+                    locationA.setLongitude(LatLngA.longitude);
+                    LatLng LatLngB = pl.getPoints().get(1);
+                    Location locationB = new Location("locationB");
+                    locationB.setLatitude(LatLngB.latitude);
+                    locationB.setLongitude(LatLngB.longitude);
 
-                LatLng LatLngMiddle = new LatLng((LatLngA.latitude - LatLngB.latitude)/2, (LatLngA.longitude - LatLngB.longitude)/2);
+                    LatLng LatLngMiddle = new LatLng((LatLngA.latitude + LatLngB.latitude)/2, (LatLngA.longitude + LatLngB.longitude)/2);
 
-                IconGenerator icnGenerator = new IconGenerator(getBaseContext());
-                icnGenerator.setColor(Color.parseColor("#FB7063"));
-                Bitmap iconBitmap = icnGenerator.makeIcon(String.format(" %.2f km", locationA.distanceTo(locationB)/1000.0));
-                MarkerOptions options = new MarkerOptions().position(LatLngMiddle)
+                    IconGenerator icnGenerator = new IconGenerator(getBaseContext());
+                    icnGenerator.setColor(Color.parseColor("#000000"));
+                    Bitmap iconBitmap = icnGenerator.makeIcon(String.format(" %.2f km", locationA.distanceTo(locationB)/1000.0));
+                    MarkerOptions options = new MarkerOptions().position(LatLngMiddle)
                             .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
-                mMap.addMarker(options).setTag("Distance Indicator");
+                    polyMarkers.add(mMap.addMarker(options));
+                }
+
+
             }
         });
         // polygon tap
         mMap.setOnPolygonClickListener(new GoogleMap.OnPolygonClickListener() {
             @Override
             public void onPolygonClick(@NonNull Polygon polygon) {
+                for (Marker mk : polyMarkers)
+                        mk.remove();
+
                 double totalDistance = 0.0;
                 for(int i=0;  i<POLYGON_POINTS; i++){
                     Location locationA = new Location("locationA");
                     locationA.setLatitude(markers.get(i).getPosition().latitude);
                     locationA.setLongitude(markers.get(i).getPosition().longitude);
                     if(i > 0 ) {
-
                         Location locationB = new Location("locationB");
                         locationB.setLatitude(markers.get(i-1).getPosition().latitude);
                         locationB.setLongitude(markers.get(i-1).getPosition().longitude);
-
                         totalDistance += locationA.distanceTo(locationB);
                     }
-
                     if (i == POLYGON_POINTS - 1 ){
                         Location locationC = new Location("locationC");
                         locationC.setLatitude(markers.get(i-1).getPosition().latitude);
                         locationC.setLongitude(markers.get(i-1).getPosition().longitude);
                         totalDistance += locationA.distanceTo(locationC);
                     }
-
                 }
                 IconGenerator icnGenerator = new IconGenerator(getBaseContext());
                 icnGenerator.setColor(Color.parseColor("#000000"));
-                Bitmap iconBitmap = icnGenerator.makeIcon(String.format("A-B-C-D \n %.2f km", totalDistance));
+                Bitmap iconBitmap = icnGenerator.makeIcon(String.format("A-B-C-D \n %.2f km", totalDistance/1000.0));
                 MarkerOptions options = new MarkerOptions().position(new LatLng(homelocation.getLatitude(), homelocation.getLongitude()))
                         .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
-
+                polyMarkers.add(mMap.addMarker(options));
             }
 
-
         });
-
     }
-//
+
     private void setMarker(Location location) {
         if (markers.size() == POLYGON_POINTS){
-
             for (Marker marker : markers)
                 marker.remove();
             markers.clear();
@@ -274,50 +296,61 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         if(!error.isEmpty())
             Toast.makeText(this,error, Toast.LENGTH_SHORT).show();
-        /*
-         * this checks if there are already the same number of markers as
-         * the polygon points, so we clear the map
-         * */
-//        if (markers.size() == POLYGON_POINTS)
-//            for (Marker marker : markers){
-//                marker.remove();
-//            }
-//
-//        markers.clear();
-//        if (shape != null){
-//            shape.remove();
-//            shape = null;
-//        }
 
 
-        /*
-         * this check is when we reach the number of markers needed for drawing polygon
-         * */
-//        if (markers.size() == POLYGON_POINTS)
-//            drawShape();
+        for (Marker plMkr : polyMarkers)
+            plMkr.remove();
+        for(Polyline line : lines)
+            line.remove();
+        lines.clear();
+        polyMarkers.clear();
+        if (shape != null){
+            shape.remove();
+            shape = null;
+        }
+        if (markers.size() == POLYGON_POINTS)
+            markerSorter();
+            drawShape();
+    }
 
+
+    private void drawShape() {
+        PolygonOptions polygon = new PolygonOptions()
+                .fillColor(0x59008800)
+                .strokeColor(0x59008800)
+                .strokeWidth(1);
+        for(int i=0;  i<POLYGON_POINTS; i++){
+
+            if(i > 0) {
+
+                PolylineOptions polyline = new PolylineOptions()
+                        .color(Color.RED)
+                        .width(5)
+                        .add(markers.get(i-1).getPosition(), markers.get(i).getPosition());
+                line = mMap.addPolyline(polyline);
+                lines.add(line);
+                line.setClickable(true);
+            }
+
+            if (i == POLYGON_POINTS - 1 ){
+                PolylineOptions polyline = new PolylineOptions()
+                        .color(Color.RED)
+                        .width(5)
+                        .add(markers.get(i).getPosition(), markers.get(0).getPosition());
+                line =mMap.addPolyline(polyline);
+                lines.add(line);
+                line.setClickable(true);
+
+            }
+            polygon.add(markers.get(i).getPosition());
+        }
+        shape = mMap.addPolygon(polygon);
+        shape.setClickable(true);
+    }
+    public void markerSorter(){
 
     }
-//    private void drawLine(Marker markerA, Marker markerB) {
-//        PolylineOptions options = new PolylineOptions()
-//                .add(markerA.getPosition(), markerB.getPosition())
-//                .color(Color.RED)
-//                .width(5);
-//        lines.add(mMap.addPolyline(options));
-//    }
-//
-//    private void drawShape() {
-//        PolygonOptions options = new PolygonOptions()
-//                .fillColor(0x330000FF)
-//                .strokeWidth(1)
-//                .strokeColor(0x330000FF);
-//
-//        for (int i=0; i<POLYGON_POINTS; i++){
-//            options.add(markers.get(i).getPosition());
-//        }
-//
-//        shape = mMap.addPolygon(options);
-//    }
+
     public String getCurrentMarkerLetter(){
         List<String> arrayLet = markers .stream().map(marker -> { return marker.getTitle(); }).collect(Collectors.toList());
         for (String ch : markerLetters) {
