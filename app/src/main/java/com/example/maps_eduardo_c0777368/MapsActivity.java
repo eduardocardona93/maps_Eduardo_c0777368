@@ -257,7 +257,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 IconGenerator icnGenerator = new IconGenerator(getBaseContext());
                 icnGenerator.setColor(Color.parseColor("#000000"));
                 Bitmap iconBitmap = icnGenerator.makeIcon(String.format("A-B-C-D \n %.2f km", totalDistance/1000.0));
-                MarkerOptions options = new MarkerOptions().position(new LatLng(homelocation.getLatitude(), homelocation.getLongitude()))
+                MarkerOptions options = new MarkerOptions().position(qck.centerOfMass(markers))
                         .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
                 polyMarkers.add(mMap.addMarker(options));
             }
@@ -311,10 +311,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             shape.remove();
             shape = null;
         }
-        if (markers.size() == POLYGON_POINTS){
+        if (markers.size() == POLYGON_POINTS)
             markers = qck.quickHull(markers);
+//            markers.clear();
+
+        if (markers.size() == POLYGON_POINTS)
             drawShape();
-        }
+        else
+            System.out.println("not possible");
 
     }
 
@@ -333,8 +337,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         .width(5)
                         .add(markers.get(i-1).getPosition(), markers.get(i).getPosition());
                 line = mMap.addPolyline(polyline);
-                lines.add(line);
                 line.setClickable(true);
+
+                lines.add(line);
+
             }
 
             if (i == POLYGON_POINTS - 1 ){
@@ -343,8 +349,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         .width(5)
                         .add(markers.get(i).getPosition(), markers.get(0).getPosition());
                 line =mMap.addPolyline(polyline);
-                lines.add(line);
                 line.setClickable(true);
+                lines.add(line);
+
 
             }
             polygon.add(markers.get(i).getPosition());

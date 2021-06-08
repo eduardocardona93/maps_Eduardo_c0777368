@@ -1,6 +1,8 @@
 package com.example.maps_eduardo_c0777368;
 
 
+import android.location.Location;
+
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 
@@ -8,7 +10,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+// Reference taken from https://gist.github.com/fiskurgit/5209e93679ed14763f6c56efad012c81
+
 public class QuickHullMarker {
+    ArrayList<Marker> leftSet = new ArrayList<>();
+    ArrayList<Marker> rightSet = new ArrayList<>();
+
 
     public ArrayList<Marker> quickHull(List<Marker> markers) {
 
@@ -37,8 +44,7 @@ public class QuickHullMarker {
         markers.remove(a);
         markers.remove(b);
 
-        ArrayList<Marker> leftSet = new ArrayList<>();
-        ArrayList<Marker> rightSet = new ArrayList<>();
+
 
         for(Marker p : markers){
             if (pointLocation(a, b, p) == -1){
@@ -94,8 +100,13 @@ public class QuickHullMarker {
             }
         }
 
+
         hullSet(a, p, leftSetAP, convexHull);
         hullSet(p, b, leftSetPB, convexHull);
+
+        if(set.size() > 0){
+            hullSet(b, a, set, convexHull);
+        }
     }
 
     private static double distance(Marker a, Marker b, Marker c) {
@@ -109,5 +120,14 @@ public class QuickHullMarker {
     private static int pointLocation(Marker a, Marker b, Marker p) {
         double cp1 = (b.getPosition().latitude - a.getPosition().latitude) * (p.getPosition().longitude - a.getPosition().longitude) - (b.getPosition().longitude - a.getPosition().longitude) * (p.getPosition().latitude - a.getPosition().latitude);
         return (cp1 > 0) ? 1 : -1;
+    }
+
+    public LatLng centerOfMass(List<Marker> markers){
+        double totalLat = 0.0,totalLong = 0.0;
+        for (Marker mk: markers) {
+            totalLat += mk.getPosition().latitude;
+            totalLong += mk.getPosition().longitude;
+        }
+        return new LatLng(totalLat/ (double) markers.size(), totalLong/ (double) markers.size());
     }
 }
