@@ -41,11 +41,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     private final int REQUEST_CODE = 1;
 
     Polyline line;
     Polygon shape;
+
+    QuickHullMarker qck = new QuickHullMarker();
 
 
     List<Marker> markers = new ArrayList<>();
@@ -308,9 +311,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             shape.remove();
             shape = null;
         }
-        if (markers.size() == POLYGON_POINTS)
-            markerSorter();
+        if (markers.size() == POLYGON_POINTS){
+            markers = qck.quickHull(markers);
             drawShape();
+        }
+
     }
 
 
