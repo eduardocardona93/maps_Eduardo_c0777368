@@ -6,31 +6,31 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.ColorSpace;
-import android.graphics.Point;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -39,10 +39,10 @@ import com.google.android.gms.maps.model.Polygon;
 import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.maps.android.ui.IconGenerator;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -53,77 +53,87 @@ import java.util.stream.Collectors;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     private final int REQUEST_CODE = 1;
 
-    Polyline line;
     Polygon shape;
 
 
     List<Marker> markers = new ArrayList<>();
     List<Marker> polyMarkers = new ArrayList<>();
     List<Polyline> lines = new ArrayList<>();
-    private final String markerLetters[] = {"A", "B", "C", "D"};
+    private final String[] markerLetters = {"A", "B", "C", "D"};
     private final int POLYGON_POINTS = markerLetters.length;
-    LocationManager locationManager;
-    LocationListener locationListener;
+
+    // Fused location provider client
+    private FusedLocationProviderClient mClient;
+    private LocationRequest locationRequest;
+    private LocationCallback locationCallback;
+
+    private static final int UPDATE_INTERVAL = 5000; // 5 seconds
+    private static final int FASTEST_INTERVAL = 3000; // 3 seconds
 
     Location homelocation = null;
-
+    SupportMapFragment mapFragment;
     private GoogleMap mMap;
-    private ActivityMapsBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        binding = ActivityMapsBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
+        setContentView(R.layout.activity_maps);
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        assert mapFragment != null;
         mapFragment.getMapAsync(this);
+
+        mClient = LocationServices.getFusedLocationProviderClient(this);
+
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                // set the home location
-                homelocation = location;
-                LatLng userLocation = new LatLng(homelocation.getLatitude(), homelocation.getLongitude());
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 10));
-            }
-
-            @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {
-            }
-
-            @Override
-            public void onProviderEnabled(String provider) {
-            }
-
-            @Override
-            public void onProviderDisabled(String provider) {
-            }
-        };
         // permission check
         if (!checkPermission()) {
             requestPermission();// request permissions
         } else {
-            setupMap();
+            startUpdateLocation();
+
         }
     }
 
     @SuppressLint("MissingPermission")
+    private void startUpdateLocation() {
+        locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(5000);
+        locationRequest.setFastestInterval(3000);
+        locationRequest.setSmallestDisplacement(1000);
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                mMap.clear();
+                if (locationResult != null) {
+                    homelocation = locationResult.getLastLocation();
+                    LatLng userLocation = new LatLng(homelocation.getLatitude(), homelocation.getLongitude());
+                    mMap.addMarker(new MarkerOptions().position(userLocation).title("My current location"));
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 10));
+                }
+            }
+        };
+
+
+        mClient.requestLocationUpdates(locationRequest, locationCallback, null);
+        setupMap();
+
+    }
+    @SuppressLint("MissingPermission")
     private void setupMap() {
         mMap.setMyLocationEnabled(true);
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 100, locationListener);
         // map tap
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(@NonNull LatLng latLng) {
-
+                removePolyMarkers();
             }
         });
         // marker tap
@@ -153,7 +163,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-                    Toast.makeText(getApplicationContext(), address, Toast.LENGTH_SHORT).show();
+                    if (android.os.Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                        Toast.makeText(mapFragment.getContext(), address, Toast.LENGTH_SHORT).show();
+                    }else{
+                        Snackbar.make(mapFragment.getView(), address, Snackbar.LENGTH_SHORT).show();
+
+                    }
                 }
 
                 return false;
@@ -297,8 +312,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
             error = "Error at creating marker";
         }
-        if (!error.isEmpty())
-            Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+        if (!error.isEmpty()){
+            if (android.os.Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                Toast.makeText(mapFragment.getContext(), error, Toast.LENGTH_SHORT).show();
+            }else{
+                Snackbar.make(mapFragment.getView(), error, Snackbar.LENGTH_SHORT).show();
+
+            }
+        }
 
 
         removePolyMarkers();
@@ -320,8 +341,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void drawShape() {
         PolygonOptions polygon = new PolygonOptions()
-                .fillColor(0x59008800)
-                .strokeColor(0x59008800)
+                .fillColor(0x5900AA00)
+                .strokeColor(0x5900AA00)
                 .strokeWidth(1);
         for (int i = 0; i < POLYGON_POINTS; i++) {
 
@@ -331,7 +352,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         .color(Color.RED)
                         .width(5)
                         .add(markers.get(i - 1).getPosition(), markers.get(i).getPosition());
-                line = mMap.addPolyline(polyline);
+                Polyline line = mMap.addPolyline(polyline);
                 line.setClickable(true);
 
                 lines.add(line);
@@ -343,7 +364,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         .color(Color.RED)
                         .width(5)
                         .add(markers.get(i).getPosition(), markers.get(0).getPosition());
-                line = mMap.addPolyline(polyline);
+                Polyline line = mMap.addPolyline(polyline);
                 line.setClickable(true);
                 lines.add(line);
 
@@ -400,7 +421,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return new LatLng(totalLat/ (double) markers.size(), totalLong/ (double) markers.size());
     }
 
-
+    // gets the current map letter to be set
     public String getCurrentMarkerLetter() {
         List<String> arrayLet = markers.stream().map(marker -> {
             return marker.getTag().toString();
@@ -425,10 +446,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (REQUEST_CODE == requestCode) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, locationListener);
-            }
+        if (requestCode == REQUEST_CODE) {
+            if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                new AlertDialog.Builder(this)
+                        .setMessage("The permission is mandatory")
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                ActivityCompat.requestPermissions(MapsActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+                            }
+                        }).create().show();
+            } else
+                startUpdateLocation();
         }
     }
 }
