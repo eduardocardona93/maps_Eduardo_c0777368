@@ -11,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.Point;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -18,6 +19,10 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -37,9 +42,12 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.maps.android.ui.IconGenerator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+
+
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
@@ -48,13 +56,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     Polyline line;
     Polygon shape;
 
-    QuickHullMarker qck = new QuickHullMarker();
-
 
     List<Marker> markers = new ArrayList<>();
     List<Marker> polyMarkers = new ArrayList<>();
     List<Polyline> lines = new ArrayList<>();
-    private final String markerLetters[] = {"A","B","C","D"};
+    private final String markerLetters[] = {"A", "B", "C", "D"};
     private final int POLYGON_POINTS = markerLetters.length;
     LocationManager locationManager;
     LocationListener locationListener;
@@ -88,17 +94,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 LatLng userLocation = new LatLng(homelocation.getLatitude(), homelocation.getLongitude());
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 10));
             }
+
             @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {}
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+            }
+
             @Override
-            public void onProviderEnabled(String provider) {}
+            public void onProviderEnabled(String provider) {
+            }
+
             @Override
-            public void onProviderDisabled(String provider) {}
+            public void onProviderDisabled(String provider) {
+            }
         };
         // permission check
-        if (!checkPermission()){
-            requestPermission();
-        } else{
+        if (!checkPermission()) {
+            requestPermission();// request permissions
+        } else {
             setupMap();
         }
     }
@@ -107,30 +119,43 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void setupMap() {
         mMap.setMyLocationEnabled(true);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 100, locationListener);
+        // map tap
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(@NonNull LatLng latLng) {
+
+            }
+        });
         // marker tap
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(@NonNull Marker marker) {
-                String address = "Could not find the address";
-                Geocoder geocoder = new Geocoder(getBaseContext(), Locale.getDefault());
-                try {
-                    List<Address> addressList = geocoder.getFromLocation(marker.getPosition().latitude, marker.getPosition().longitude, 1);
-                    if (addressList != null && addressList.size() > 0  ) {
-                        address = "";
-                        // street name
-                        if (addressList.get(0).getThoroughfare() != null)
-                            address += addressList.get(0).getThoroughfare() + ", ";
-                        if (addressList.get(0).getPostalCode() != null)
-                            address += addressList.get(0).getPostalCode() + ", ";
-                        if (addressList.get(0).getLocality() != null)
-                            address += addressList.get(0).getLocality() + ", ";
-                        if (addressList.get(0).getAdminArea() != null)
-                            address += addressList.get(0).getAdminArea();
+
+                if (marker.getTag() != null) {
+                    String address = "Could not find the address";
+                    Geocoder geocoder = new Geocoder(getBaseContext(), Locale.getDefault());
+                    try {
+                        List<Address> addressList = geocoder.getFromLocation(marker.getPosition().latitude, marker.getPosition().longitude, 1);
+                        if (addressList != null && addressList.size() > 0) {
+                            address = "";
+                            // street name
+                            if (addressList.get(0).getThoroughfare() != null)
+                                address += addressList.get(0).getThoroughfare() + ", ";
+                            if (addressList.get(0).getPostalCode() != null)
+                                address += addressList.get(0).getPostalCode() + ", ";
+                            if (addressList.get(0).getLocality() != null)
+                                address += addressList.get(0).getLocality() + ", ";
+                            if (addressList.get(0).getAdminArea() != null)
+                                address += addressList.get(0).getAdminArea();
+
+                            removePolyMarkers();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    Toast.makeText(getApplicationContext(), address, Toast.LENGTH_SHORT).show();
                 }
-                Toast.makeText(getApplicationContext(),address, Toast.LENGTH_SHORT).show();
+
                 return false;
             }
         });
@@ -138,22 +163,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
             @Override
             public void onMarkerDragStart(@NonNull Marker marker) {
-                marker.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
             }
+
             @Override
-            public void onMarkerDrag(@NonNull Marker marker) {}
+            public void onMarkerDrag(@NonNull Marker marker) {
+            }
+
             @Override
             public void onMarkerDragEnd(@NonNull Marker marker) {
-                for(Polyline line : lines)
-                    line.remove();
-                lines.clear();
-                for (Marker plMkr : polyMarkers)
-                    plMkr.remove();
-                polyMarkers.clear();
-                if (shape != null){
-                    shape.remove();
-                    shape = null;
-                }
                 markers.remove(marker);
                 marker.remove();
                 Location location = new Location("location");
@@ -167,6 +184,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
             @Override
             public void onMapLongClick(LatLng latLng) {
+
                 Location newLocation = new Location("newLocation");
                 newLocation.setLatitude(latLng.latitude);
                 newLocation.setLongitude(latLng.longitude);
@@ -175,18 +193,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     Location itLocation = new Location("itLocation");
                     itLocation.setLatitude(itMark.getPosition().latitude);
                     itLocation.setLongitude(itMark.getPosition().longitude);
-                    if(newLocation.distanceTo(itLocation)/1000.0 < 5.0){
-                        for(Polyline line : lines)
-                            line.remove();
-                        lines.clear();
-                        for (Marker plMkr : polyMarkers)
-                            plMkr.remove();
-                        polyMarkers.clear();
-
-                        if (shape != null){
-                            shape.remove();
-                            shape = null;
-                        }
+                    if (newLocation.distanceTo(itLocation) / 1000.0 < 5.0) {
+                        removePolyLines();
+                        removePolyMarkers();
+                        removePolygon();
                         markers.remove(itMark);
                         itMark.remove();
                         isNew = false;
@@ -202,11 +212,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnPolylineClickListener(new GoogleMap.OnPolylineClickListener() {
             @Override
             public void onPolylineClick(@NonNull Polyline polyline) {
-
-                for (Marker mk : polyMarkers)
-                        mk.remove();
-
+                removePolyMarkers();
                 for (Polyline pl : lines) {
+
                     LatLng LatLngA = pl.getPoints().get(0);
                     Location locationA = new Location("locationA");
                     locationA.setLatitude(LatLngA.latitude);
@@ -216,14 +224,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     locationB.setLatitude(LatLngB.latitude);
                     locationB.setLongitude(LatLngB.longitude);
 
-                    LatLng LatLngMiddle = new LatLng((LatLngA.latitude + LatLngB.latitude)/2, (LatLngA.longitude + LatLngB.longitude)/2);
-
-                    IconGenerator icnGenerator = new IconGenerator(getBaseContext());
-                    icnGenerator.setColor(Color.parseColor("#000000"));
-                    Bitmap iconBitmap = icnGenerator.makeIcon(String.format(" %.2f km", locationA.distanceTo(locationB)/1000.0));
-                    MarkerOptions options = new MarkerOptions().position(LatLngMiddle)
-                            .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
-                    polyMarkers.add(mMap.addMarker(options));
+                    LatLng LatLngMiddle = new LatLng((LatLngA.latitude + LatLngB.latitude) / 2, (LatLngA.longitude + LatLngB.longitude) / 2);
+                    polyMarkers.add(mMap.addMarker(
+                            createMarkerOptions(String.format("Line Distance\n%.2f km", locationA.distanceTo(locationB) / 1000.0),
+                                    "#000000", null, null, LatLngMiddle, false)));
                 }
 
 
@@ -233,40 +237,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnPolygonClickListener(new GoogleMap.OnPolygonClickListener() {
             @Override
             public void onPolygonClick(@NonNull Polygon polygon) {
-                for (Marker mk : polyMarkers)
-                        mk.remove();
+                removePolyMarkers();
 
                 double totalDistance = 0.0;
-                for(int i=0;  i<POLYGON_POINTS; i++){
+                for (int i = 0; i < POLYGON_POINTS; i++) {
                     Location locationA = new Location("locationA");
                     locationA.setLatitude(markers.get(i).getPosition().latitude);
                     locationA.setLongitude(markers.get(i).getPosition().longitude);
-                    if(i > 0 ) {
+                    if (i > 0) {
                         Location locationB = new Location("locationB");
-                        locationB.setLatitude(markers.get(i-1).getPosition().latitude);
-                        locationB.setLongitude(markers.get(i-1).getPosition().longitude);
+                        locationB.setLatitude(markers.get(i - 1).getPosition().latitude);
+                        locationB.setLongitude(markers.get(i - 1).getPosition().longitude);
                         totalDistance += locationA.distanceTo(locationB);
                     }
-                    if (i == POLYGON_POINTS - 1 ){
+                    if (i == POLYGON_POINTS - 1) {
                         Location locationC = new Location("locationC");
-                        locationC.setLatitude(markers.get(i-1).getPosition().latitude);
-                        locationC.setLongitude(markers.get(i-1).getPosition().longitude);
+                        locationC.setLatitude(markers.get(i - 1).getPosition().latitude);
+                        locationC.setLongitude(markers.get(i - 1).getPosition().longitude);
                         totalDistance += locationA.distanceTo(locationC);
                     }
                 }
-                IconGenerator icnGenerator = new IconGenerator(getBaseContext());
-                icnGenerator.setColor(Color.parseColor("#000000"));
-                Bitmap iconBitmap = icnGenerator.makeIcon(String.format("A-B-C-D \n %.2f km", totalDistance/1000.0));
-                MarkerOptions options = new MarkerOptions().position(qck.centerOfMass(markers))
-                        .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap));
-                polyMarkers.add(mMap.addMarker(options));
+
+                polyMarkers.add(mMap.addMarker(createMarkerOptions(String.format("A-B-C-D \n %.2f km", totalDistance / 1000.0), "#000000", null, null,
+                        centerOfMass(markers), false)));
             }
 
         });
     }
 
+
     private void setMarker(Location location) {
-        if (markers.size() == POLYGON_POINTS){
+        if (markers.size() >= POLYGON_POINTS) {
             for (Marker marker : markers)
                 marker.remove();
             markers.clear();
@@ -276,20 +277,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
         try {
             List<Address> addressList = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-            if (addressList != null && addressList.size() > 0 && addressList.get(0).getCountryName() != null ) {
-                if (addressList.get(0).getCountryName().equalsIgnoreCase("Canada") ){
-                    LatLng userLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-                    MarkerOptions options = new MarkerOptions().position(userLatLng)
-                            .title("Marker " + getCurrentMarkerLetter())
-                            .snippet(String.format("%.2f km to your location",location.distanceTo(homelocation)/1000.0))
-                            .draggable(true);
+            if (addressList != null && addressList.size() > 0 && addressList.get(0).getCountryName() != null) {
+                if (addressList.get(0).getCountryName().equalsIgnoreCase("Canada")) {
 
-                    Marker newMarker = mMap.addMarker(options);
+                    LatLng selectedLatLang = new LatLng(location.getLatitude(), location.getLongitude());
+                    String letter = getCurrentMarkerLetter();
+                    Marker newMarker = mMap.addMarker(createMarkerOptions(letter, "#202146", "Marker " + letter,
+                            String.format("%.2f km to your location", location.distanceTo(homelocation) / 1000.0), selectedLatLang, true));
 
+                    newMarker.setTag(letter);
                     markers.add(newMarker);
-                }else
+                } else
                     error = "This location is outside Canada, please try again";
-            }else
+            } else
                 error = "Error at creating marker";
 
 
@@ -297,28 +297,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
             error = "Error at creating marker";
         }
-        if(!error.isEmpty())
-            Toast.makeText(this,error, Toast.LENGTH_SHORT).show();
+        if (!error.isEmpty())
+            Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
 
 
-        for (Marker plMkr : polyMarkers)
-            plMkr.remove();
-        for(Polyline line : lines)
-            line.remove();
-        lines.clear();
-        polyMarkers.clear();
-        if (shape != null){
-            shape.remove();
-            shape = null;
+        removePolyMarkers();
+        removePolyLines();
+        removePolygon();
+
+        if (markers.size() == POLYGON_POINTS) {
+            // TAKEN FROM GITHUB PROJECT
+            // https://github.com/bkiers/GrahamScan
+            List<Marker> tempMarkers = GrahamScan.getSortedPointSet(markers);
+            if (tempMarkers.size() == POLYGON_POINTS) {
+                markers = tempMarkers;
+                drawShape();
+            }
         }
-        if (markers.size() == POLYGON_POINTS)
-            markers = qck.quickHull(markers);
-//            markers.clear();
-
-        if (markers.size() == POLYGON_POINTS)
-            drawShape();
-        else
-            System.out.println("not possible");
 
     }
 
@@ -328,14 +323,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .fillColor(0x59008800)
                 .strokeColor(0x59008800)
                 .strokeWidth(1);
-        for(int i=0;  i<POLYGON_POINTS; i++){
+        for (int i = 0; i < POLYGON_POINTS; i++) {
 
-            if(i > 0) {
+            if (i > 0) {
 
                 PolylineOptions polyline = new PolylineOptions()
                         .color(Color.RED)
                         .width(5)
-                        .add(markers.get(i-1).getPosition(), markers.get(i).getPosition());
+                        .add(markers.get(i - 1).getPosition(), markers.get(i).getPosition());
                 line = mMap.addPolyline(polyline);
                 line.setClickable(true);
 
@@ -343,12 +338,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
 
-            if (i == POLYGON_POINTS - 1 ){
+            if (i == POLYGON_POINTS - 1) {
                 PolylineOptions polyline = new PolylineOptions()
                         .color(Color.RED)
                         .width(5)
                         .add(markers.get(i).getPosition(), markers.get(0).getPosition());
-                line =mMap.addPolyline(polyline);
+                line = mMap.addPolyline(polyline);
                 line.setClickable(true);
                 lines.add(line);
 
@@ -359,28 +354,74 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shape = mMap.addPolygon(polygon);
         shape.setClickable(true);
     }
-    public void markerSorter(){
+
+
+    public MarkerOptions createMarkerOptions(String iconText, String color, String title, String snippet, LatLng latLng, boolean dragable) {
+        IconGenerator icnGenerator = new IconGenerator(getBaseContext());
+        icnGenerator.setColor(Color.parseColor(color));
+        Bitmap iconBitmap = icnGenerator.makeIcon(iconText);
+
+        MarkerOptions options = new MarkerOptions().position(latLng)
+                .title(title)
+                .snippet(snippet)
+                .icon(BitmapDescriptorFactory.fromBitmap(iconBitmap))
+                .draggable(dragable);
+        return options;
 
     }
 
-    public String getCurrentMarkerLetter(){
-        List<String> arrayLet = markers .stream().map(marker -> { return marker.getTitle(); }).collect(Collectors.toList());
+
+    public void removePolyMarkers() {
+        for (Marker plMkr : polyMarkers)
+            plMkr.remove();
+        polyMarkers.clear();
+    }
+
+    public void removePolyLines() {
+        for (Polyline line : lines)
+            line.remove();
+        lines.clear();
+    }
+
+    public void removePolygon() {
+        if (shape != null) {
+            shape.remove();
+            shape = null;
+        }
+    }
+
+
+    public static LatLng centerOfMass(List<Marker> markers){
+        double totalLat = 0.0,totalLong = 0.0;
+        for (Marker mk: markers) {
+            totalLat += mk.getPosition().latitude;
+            totalLong += mk.getPosition().longitude;
+        }
+        return new LatLng(totalLat/ (double) markers.size(), totalLong/ (double) markers.size());
+    }
+
+
+    public String getCurrentMarkerLetter() {
+        List<String> arrayLet = markers.stream().map(marker -> {
+            return marker.getTag().toString();
+        }).collect(Collectors.toList());
         for (String ch : markerLetters) {
-            if(!arrayLet.contains("Marker " + ch)){
-               return  ch;
+            if (!arrayLet.contains(ch)) {
+                return ch;
             }
         }
         return "A";
     }
-
     // ------------------------------------- PERMISSIONS -------------------------------------
     private void requestPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
     }
+
     private boolean checkPermission() {
         int permissionStatus = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION);
         return permissionStatus == PackageManager.PERMISSION_GRANTED;
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
