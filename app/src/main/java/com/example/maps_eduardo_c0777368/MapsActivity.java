@@ -114,7 +114,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (locationResult != null) { // if the location result exists
                     homelocation = locationResult.getLastLocation(); // sets the home location
                     LatLng userlatlang = new LatLng(homelocation.getLatitude(), homelocation.getLongitude()); // sets the latlang object
-                    mMap.addMarker(new MarkerOptions().position(userlatlang).title("My current location")); // adds a marker
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userlatlang, 10)); // moves the camera to the current location with a zoom of 10
                 }
             }
